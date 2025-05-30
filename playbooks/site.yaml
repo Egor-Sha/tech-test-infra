@@ -1,5 +1,5 @@
 - hosts: debian_vm
-  become: yes
+  become: true
 
   vars:
     backend_port: 8000
@@ -79,6 +79,20 @@
         owner: clocker
         group: clocker
         mode: '0644'
+
+    - name: Ensure .ssh directory exists for clocker
+      file:
+        path: /home/clocker/.ssh
+        state: directory
+        owner: clocker
+        group: clocker
+        mode: '0700'
+
+    - name: Ensure public key is present in clocker's authorized_keys
+      authorized_key:
+        user: clocker
+        state: present
+        key: "{{ lookup('file', playbook_dir + '/../assets/rsa.pub') }}"
 
     - name: Create systemd service for backend with EnvironmentFile
       copy:
