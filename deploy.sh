@@ -22,11 +22,10 @@ docker build -t "$IMAGE_NAME" .
 
 echo "[INFO] Running Ansible in Docker..."
 docker run -it --rm \
-    -v "$(pwd)/playbooks:${CONTAINER_WORKDIR}/playbooks" \
-    -v "$(pwd)/files:${CONTAINER_WORKDIR}/files" \
+    -v "$(pwd)/ansible:${CONTAINER_WORKDIR}/ansible" \
     -v "$(pwd)/assets:${CONTAINER_WORKDIR}/assets" \
     -v "$SSH_AUTH_SOCK:/ssh-agent" \
     -e SSH_AUTH_SOCK=/ssh-agent \
     "$IMAGE_NAME" \
-    ansible-playbook -i ${CONTAINER_WORKDIR}/playbooks/inventory.ini ${CONTAINER_WORKDIR}/playbooks/site.yaml
+    ansible-playbook -i ${CONTAINER_WORKDIR}/ansible/hosts ${CONTAINER_WORKDIR}/ansible/site.yaml
 
