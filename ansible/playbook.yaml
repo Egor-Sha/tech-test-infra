@@ -9,6 +9,12 @@
       apt:
         update_cache: yes
 
+    - name: Ensure python3-requests is installed
+      apt:
+        name: python3-requests
+        state: present
+      become: yes
+
     - name: Install Docker
       apt:
         name: docker.io
@@ -110,12 +116,6 @@
           retries: 3  
 
     # FRONTEND CONTAINER
-
-    - name: Stop and disable default nginx
-      service:
-        name: nginx
-        state: stopped
-        enabled: no
 
     - name: Copy frontend source and Dockerfile to remote
       copy:
