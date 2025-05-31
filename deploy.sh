@@ -27,5 +27,5 @@ docker run -it --rm \
     -v "$SSH_AUTH_SOCK:/ssh-agent" \
     -e SSH_AUTH_SOCK=/ssh-agent \
     "$IMAGE_NAME" \
-    ansible-playbook -i ${CONTAINER_WORKDIR}/ansible/hosts ${CONTAINER_WORKDIR}/ansible/site.yaml
+    ansible-playbook -i ${CONTAINER_WORKDIR}/ansible/inventory.ini ${CONTAINER_WORKDIR}/ansible/playbook.yaml
 

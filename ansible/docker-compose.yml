@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: clocker-backend
+    expose:
+      - "8000"
+    networks:
+      - clocker-net
+
+  frontend:
+    build: ./frontend
+    container_name: clocker-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - clocker-net
+
+networks:
+  clocker-net:
+    driver: bridge

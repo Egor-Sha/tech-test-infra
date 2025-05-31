@@ -1,0 +1,144 @@
+- hosts: debian_vm
+  become: true
+
+  vars:
+    backend_port: 8000
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present    
+
+    - name: Ensure clocker user exists
+      user:
+        name: clocker
+        system: yes
+        shell: /usr/sbin/nologin
+
+    - name: Ensure docker group exists and clocker is part of it
+      user:
+        name: clocker
+        groups: docker
+        append: yes
+
+    - name: Ensure /opt/clocker directory exists
+      file:
+        path: /opt/clocker
+        state: directory
+        owner: clocker
+        group: clocker
+        mode: '0755'
+
+    - name: Ensure /etc/clocker directory exists
+      file:
+        path: /etc/clocker
+        state: directory
+        owner: clocker
+        group: clocker
+        mode: '0755'
+
+    - name: Copy backend.env to app directory for Docker container
+      copy:
+        src: files/backend.env
+        dest: /opt/clocker/backend.env
+        owner: clocker
+        group: clocker
+        mode: '0644'
+
+    - name: Ensure .ssh directory exists for clocker
+      file:
+        path: /home/clocker/.ssh
+        state: directory
+        owner: clocker
+        group: clocker
+        mode: '0700'
+
+    - name: Ensure public key is present in clocker's authorized_keys
+      authorized_key:
+        user: clocker
+        state: present
+        key: "{{ lookup('file', playbook_dir + '/../ansible/files/rsa.pub') }}"
+
+    # BACKEND CONTAINER
+
+    - name: Copy backend source and Dockerfile to remote
+      copy:
+        src: backend/
+        dest: /opt/clocker/backend/
+        owner: clocker
+        group: clocker
+        mode: '0755'
+
+    - name: Build backend Docker image
+      community.docker.docker_image:
+        name: clocker-backend
+        source: build
+        build:
+          path: /opt/clocker/backend
+
+    - name: Ensure old backend container is gone
+      community.docker.docker_container:
+        name: clocker-backend
+        state: absent
+        force_kill: true
+
+    - name: Ensure Docker network exists
+      community.docker.docker_network:
+        name: clocker_net
+        state: present
+
+    - name: Run backend container
+      docker_container:
+        name: clocker-backend
+        image: clocker-backend
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ backend_port }}:{{ backend_port }}"
+        env_file: /opt/clocker/backend.env
+        networks:
+          - name: clocker_net
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:{{ backend_port }}/clock"]
+          interval: 30s
+          timeout: 5s
+          retries: 3  
+
+    # FRONTEND CONTAINER
+
+    - name: Stop and disable default nginx
+      service:
+        name: nginx
+        state: stopped
+        enabled: no
+
+    - name: Copy frontend source and Dockerfile to remote
+      copy:
+        src: frontend/
+        dest: /opt/clocker/frontend/
+        owner: clocker
+        group: clocker
+        mode: '0755'
+
+    - name: Build frontend Docker image
+      community.docker.docker_image:
+        name: clocker-frontend
+        source: build
+        build:
+          path: /opt/clocker/frontend
+
+    - name: Run frontend container
+      docker_container:
+        name: clocker-frontend
+        image: clocker-frontend
+        state: started
+        restart_policy: always
+        ports:
+          - "80:80"
+        networks:
+          - name: clocker_net
