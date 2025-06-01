@@ -2,21 +2,25 @@
 
 set -euo pipefail
 
-VM_DISK_IMAGE="debian10-ssh.img"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+VM_DISK_IMAGE="$SCRIPT_DIR/debian10-ssh.img"
 VM_ARCHIVE_URL="https://immfly-infra-technical-test.s3-eu-west-1.amazonaws.com/debian10-ssh.img.tar.xz"
-VM_ARCHIVE_NAME="debian10-ssh.img.tar.xz"
-VM_XML_PATH="assets/vm.xml"
-VM_XML_TMP="vm_tmp.xml"
+VM_ARCHIVE_NAME="$SCRIPT_DIR/debian10-ssh.img.tar.xz"
+VM_XML_PATH="$SCRIPT_DIR/assets/vm.xml"
+VM_XML_TMP="$SCRIPT_DIR/vm_tmp.xml"
 VM_NAME="immfly-debian10"
 
 if [ ! -f "$VM_ARCHIVE_NAME" ]; then
   echo "Downloading VM image..."
-  curl -LO "$VM_ARCHIVE_URL"
+  curl -Lo "$VM_ARCHIVE_NAME" "$VM_ARCHIVE_URL"
 fi
 
 if [ ! -f "$VM_DISK_IMAGE" ]; then
   echo "Extracting VM image..."
-  tar -xf "$VM_ARCHIVE_NAME"
+  tar -xf "$VM_ARCHIVE_NAME" -C "$SCRIPT_DIR"
+  echo "Removing VM archive to save space..."
+  rm -f "$VM_ARCHIVE_NAME"  
 fi
 
 echo "Updating VM XML with disk path..."
@@ -34,10 +38,11 @@ virsh define "$VM_XML_TMP"
 virsh start "$VM_NAME"
 
 echo "Waiting for VM boot..."
-echo "Waiting 20 seconds for VM IP assignment..."
-sleep 20  
+echo "Waiting 40 seconds for VM IP assignment..."
+sleep 50
 
 VM_IP=$(virsh domifaddr "$VM_NAME" | awk '/ipv4/ {print $4}' | cut -d/ -f1)
+sleep 10
 
 if [ -z "$VM_IP" ]; then
   echo "Failed to detect VM IP. Exiting."
@@ -58,16 +63,16 @@ for i in {1..10}; do
 done
 
 echo "Scanning SSH key from VM..."
-if ssh-keyscan "$VM_IP" > assets/known_hosts 2>/dev/null; then
+if ssh-keyscan "$VM_IP" > "$SCRIPT_DIR/assets/known_hosts" 2>/dev/null; then
   echo "SSH key successfully scanned."
 else
   echo "Failed to scan SSH key from $VM_IP. Exiting."
   exit 1
 fi
 
-cat > ansible/inventory.ini <<EOF
+cat > "$SCRIPT_DIR/ansible/inventory.ini" <<EOF
 [debian_vm]
 $VM_IP ansible_user=toor 
 EOF
 
-rm -f "$VM_XML_TMP"
+rm -f "$SCRIPT_DIR/vm_tmp.xml"
